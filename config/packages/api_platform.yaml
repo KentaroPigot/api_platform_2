@@ -3,7 +3,6 @@ api_platform:
     paths: ["%kernel.project_dir%/src/Entity"]
   formats:
     json: ["application/json"]
-    jsonld: ["application/ld+json"]
+    jsonld: ["application/ld+json", "application/json"]
     html: ["text/html"]
-    jsonhal: ["application/hal+json"]
     csv: ["text/csv"]

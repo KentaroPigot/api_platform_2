@@ -80,6 +80,11 @@ export default {
       user: null,
     };
   },
+  mounted() {
+    if (window.user) {
+      this.user = window.user;
+    }
+  },
 };
 </script>
 

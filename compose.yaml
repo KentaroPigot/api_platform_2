@@ -3,7 +3,7 @@ services:
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-apiPlatform2}
       # You should definitely change the password in production
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
       POSTGRES_USER: ${POSTGRES_USER:-app}
@@ -13,7 +13,7 @@ services:
           "CMD",
           "pg_isready",
           "-d",
-          "${POSTGRES_DB:-app}",
+          "${POSTGRES_DB:-apiPlatform2}",
           "-U",
           "${POSTGRES_USER:-app}",
         ]

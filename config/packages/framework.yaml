@@ -1,15 +1,18 @@
 # see https://symfony.com/doc/current/reference/configuration/framework.html
 framework:
-    secret: '%env(APP_SECRET)%'
+  secret: "%env(APP_SECRET)%"
 
-    # Note that the session will be started ONLY if you read or write from it.
-    session: true
+  # Note that the session will be started ONLY if you read or write from it.
+  session:
+    cookie_secure: auto # Force les cookies en HTTPS si disponible
+    cookie_samesite: lax # Définit le SameSite (lax, strict, none)
+    cookie_httponly: true # Empêche l'accès au cookie depuis JavaScript
 
-    #esi: true
-    #fragments: true
+  #esi: true
+  #fragments: true
 
 when@test:
-    framework:
-        test: true
-        session:
-            storage_factory_id: session.storage.factory.mock_file
+  framework:
+    test: true
+    session:
+      storage_factory_id: session.storage.factory.mock_file

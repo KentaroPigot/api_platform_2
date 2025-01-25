@@ -7,6 +7,7 @@ use ApiPlatform\Doctrine\Orm\Filter\RangeFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
@@ -26,14 +27,15 @@ use Symfony\Component\Validator\Constraints as Assert;
         operations: [
             new Get(normalizationContext: ['groups' => ['cheese_listing:read', 'cheese_listing:item:get']]),
             new GetCollection(),
-            new Post(),
-            new Patch(),
+            new Post(security: 'is_granted("ROLE_USER")'),
+            new Patch(security: 'is_granted("ROLE_USER")'),
+            new Delete(security: 'is_granted("ROLE_ADMIN")')
         ],
         shortName: 'cheeses',
         normalizationContext: ['groups' => ['cheese_listing:read'], 'swagger_definition_name' => 'Read'],
         denormalizationContext: ['groups' => ['cheese_listing:write'],  'swagger_definition_name' => 'Write'],
         paginationItemsPerPage: 10,
-        formats: ['jsonld', 'json', 'html', 'jsonhal', 'csv' => ['text/csv']],
+        formats: ['jsonld', 'json', 'html', 'csv']
     ),
 ]
 #[ApiFilter(BooleanFilter::class, properties: ['isPublished'])]
