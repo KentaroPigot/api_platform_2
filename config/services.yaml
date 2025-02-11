@@ -19,9 +19,24 @@ services:
       - "../src/DependencyInjection/"
       - "../src/Entity/"
       - "../src/Kernel.php"
-
+  App\Serializer\AdminGroupsContextBuilder:
+    decorates: "api_platform.serializer.context_builder"
+    arguments: ["@.inner", "@security.helper"]
+    autoconfigure: false
+  # App\ApiPlatform\AutoGroupResourceMetadataFactory:
+  #   decorates: "api_platform.metadata.resource.metadata_collection_factory"
+  #   arguments: ["@.inner"]
+  #   decoration_priority: -20
+  App\State\UserStateProcessor:
+    public: true
+    arguments:
+      $persistProcessor: "@api_platform.doctrine.orm.state.persist_processor" # Injecte le processeur décoré
+      $passwordHasher: "@security.user_password_hasher"
+    tags: ["api_platform.state_processor"]
   # add more service definitions when explicit configuration is needed
   # please note that last definitions always *replace* previous ones
+  App\Doctrine\CheeseListingSetOwnerListener:
+    tags: ["doctrine.orm.event_listener"]
 
 when@test:
   services:
@@ -29,3 +44,7 @@ when@test:
       class: App\ApiPlatform\Test\Client
       arguments: ["@test.client"]
       public: true
+    security.user_password_hasher:
+      class: Symfony\Component\PasswordHasher\Hasher\UserPasswordHasher
+      public: true
+      arguments: ["@security.password_hasher_factory"]

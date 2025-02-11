@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
@@ -12,7 +13,7 @@ use Symfony\Component\Serializer\SerializerInterface;
 class FrontendController extends AbstractController
 {
     #[Route(path: '/', name: 'homepage')]
-    public function homepage(SerializerInterface $serializer)
+    public function homepage(LoggerInterface $logger, SerializerInterface $serializer)
     {
         return $this->render('frontend/homepage.html.twig', ['user' => $serializer->serialize($this->getUser(), 'jsonld')]);
     }

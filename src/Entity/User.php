@@ -9,10 +9,18 @@ use App\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\Put;
+use App\State\UserStateProcessor;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Serializer\Annotation\SerializedName;
 use Symfony\Component\Validator\Constraints as Assert;
 
 
@@ -20,14 +28,21 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: '`user`')]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
 #[ApiResource(
+    security: "is_granted('ROLE_USER')",
+    operations: [
+        new Get(),
+        new GetCollection(),
+        new Post(
+            security: 'is_granted("PUBLIC_ACCESS")',
+            validationContext: ['groups' => ['create', 'Default']]
+        ),
+        new Put(security: 'is_granted("ROLE_USER") and object == user', securityMessage: 'Only the creator can edit a cheese listing'),
+        new Patch(security: 'is_granted("ROLE_USER") and object == user', securityMessage: 'Only the creator can edit a cheese listing'),
+        new Delete(security: 'is_granted("ROLE_ADMIN")')
+    ],
     normalizationContext: ['groups' => ['user:read'],],
     denormalizationContext: ['groups' => ['user:write'],],
-    // subresourceOperations: [
-    //     'api_users_cheese_listings_get_subresource' => [
-    //         'method' => 'GET',
-    //         'normalization_context' => ['groups' => ['cheese_listing:read']],
-    //     ],
-    // ],
+    processor: UserStateProcessor::class
 )]
 #[UniqueEntity(fields: ['username'])]
 #[UniqueEntity(fields: ['email'])]
@@ -49,17 +64,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * @var list<string> The user roles
      */
     #[ORM\Column]
+    #[Groups(['admin:write'])]
     private array $roles = [];
 
     /**
      * @var string The hashed password
      */
     #[ORM\Column]
-    #[Groups(['user:write'])]
     private ?string $password = null;
 
+    #[Groups(['user:write'])]
+    #[SerializedName('password')]
+    #[Assert\NotBlank(groups: ['create'])]
+    private ?string $plainPassword = null;
+
     #[ORM\Column(length: 255, unique: true)]
-    #[Groups(['user:read', 'user:write', 'cheese_listing:item:get', "cheese_listing:write"])]
+    // #[Groups(['user:read', 'user:write', 'cheese:item:get', "cheese:write"])]
+    #[Groups(['user:read', 'user:write', 'cheese:item:get'])]
     #[Assert\NotBlank()]
     private ?string $username = null;
 
@@ -67,8 +88,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * @var Collection<int, CheeseListing>
      */
     #[ORM\OneToMany(targetEntity: CheeseListing::class, mappedBy: 'owner', cascade: ['persist'], orphanRemoval: true)]
-    #[Groups(['user:read', 'user:write'])]
+    #[Groups(['user:write'])]
     private Collection $cheeseListings;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    #[Groups(['admin:read', 'user:write', "owner:read"])]
+    private ?string $phoneNumber = null;
 
     public function __construct()
     {
@@ -147,7 +172,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function eraseCredentials(): void
     {
         // If you store any temporary, sensitive data on the user, clear it here
-        // $this->plainPassword = null;
+        $this->plainPassword = null;
     }
 
     public function getUsername(): string
@@ -170,6 +195,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->cheeseListings;
     }
 
+    #[Groups(['user:read, user:write'])]
+    #[SerializedName('cheeseListings')]
+    public function getPublishedCheeseListings(): Collection
+    {
+        return $this->cheeseListings->filter(function (CheeseListing $cheeseListing) {
+            return $cheeseListing->getIsPublished();
+        });
+    }
+
     public function addCheeseListing(CheeseListing $cheeseListing): static
     {
         if (!$this->cheeseListings->contains($cheeseListing)) {
@@ -188,6 +222,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 $cheeseListing->setOwner(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getPlainPassword(): ?string
+    {
+        return $this->plainPassword;
+    }
+
+    public function setPlainPassword(string $plainPassword): static
+    {
+        $this->plainPassword = $plainPassword;
+
+        return $this;
+    }
+
+    public function getPhoneNumber(): ?string
+    {
+        return $this->phoneNumber;
+    }
+
+    public function setPhoneNumber(?string $phoneNumber): static
+    {
+        $this->phoneNumber = $phoneNumber;
 
         return $this;
     }

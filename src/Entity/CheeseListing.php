@@ -14,6 +14,7 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Serializer\Filter\PropertyFilter;
 use App\Repository\CheeseListingRepository;
+use App\Validator\IsValidOwner;
 use Carbon\Carbon;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -21,19 +22,18 @@ use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Serializer\Annotation\SerializedName;
 use Symfony\Component\Validator\Constraints as Assert;
 
-#[ORM\Entity(repositoryClass: CheeseListingRepository::class)]
 #[
     ApiResource(
         operations: [
-            new Get(normalizationContext: ['groups' => ['cheese_listing:read', 'cheese_listing:item:get']]),
+            new Get(normalizationContext: ['groups' => ['cheese:item:get']]),
             new GetCollection(),
-            new Post(security: 'is_granted("ROLE_USER")'),
-            new Patch(security: 'is_granted("ROLE_USER")'),
+            new Post(security: 'is_granted("ROLE_USER")', denormalizationContext: ['groups' => ['cheese:collection:post', 'cheese:read']]),
+            new Patch(security: 'is_granted("POST_EDIT", object)', securityMessage: 'Only the creator can edit a cheese listing'),
             new Delete(security: 'is_granted("ROLE_ADMIN")')
         ],
-        shortName: 'cheeses',
-        normalizationContext: ['groups' => ['cheese_listing:read'], 'swagger_definition_name' => 'Read'],
-        denormalizationContext: ['groups' => ['cheese_listing:write'],  'swagger_definition_name' => 'Write'],
+        shortName: 'cheese',
+        normalizationContext: ['groups' => ['cheese:read'], 'swagger_definition_name' => 'Read'],
+        denormalizationContext: ['groups' => ['cheese:write'],  'swagger_definition_name' => 'Write'],
         paginationItemsPerPage: 10,
         formats: ['jsonld', 'json', 'html', 'csv']
     ),
@@ -42,6 +42,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiFilter(SearchFilter::class, properties: ['title' => 'partial', "description" => "partial", "owner" => "exact", "owner.username" => "partial"])]
 #[ApiFilter(RangeFilter::class, properties: ['price'])]
 #[ApiFilter(PropertyFilter::class)]
+#[ORM\Entity(repositoryClass: CheeseListingRepository::class)]
+#[ORM\EntityListeners(["App\Doctrine\CheeseListingSetOwnerListener"])]
 class CheeseListing
 {
     #[ORM\Id]
@@ -50,16 +52,17 @@ class CheeseListing
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['cheese_listing:read', 'cheese_listing:write', 'user:read', 'user:write'])]
+    #[Groups(['cheese:read', 'cheese:write', 'user:read', 'user:write'])]
     #[Assert\NotBlank]
     #[Assert\Length(min: 2, max: 50, maxMessage: 'Le titre ne doit pas dépasser {{ limit }} caractères')]
     private ?string $title = null;
 
     #[ORM\Column(type: Types::TEXT)]
+    #[Groups(['cheese:read'])]
     private ?string $description = null;
 
     #[ORM\Column]
-    #[Groups(['cheese_listing:read', 'cheese_listing:write', 'user:read', 'user:write'])]
+    #[Groups(['cheese:read', 'cheese:write', 'user:read', 'user:write'])]
     #[Assert\NotBlank]
     private ?int $price = null;
 
@@ -69,11 +72,12 @@ class CheeseListing
     #[ORM\Column]
     private ?bool $isPublished = false;
 
+    // #[Assert\Valid] // Permet de valider les données de l'entité associée
     #[ORM\ManyToOne(inversedBy: 'cheeseListings')]
-    #[Groups(['cheese_listing:write', 'cheese_listing:read'])]
+    #[Groups(['cheese:collection:post', 'cheese:read'])]
     #[ORM\JoinColumn(nullable: false)]
-    #[Assert\Valid] // Permet de valider les données de l'entité associée
-    private ?User $owner = null;
+    #[IsValidOwner()]
+    private ?User $owner;
 
     public function __construct(string $title = null)
     {
@@ -104,7 +108,7 @@ class CheeseListing
         return $this->description;
     }
 
-    #[Groups(['cheese_listing:read'])]
+    #[Groups(['cheese:read'])]
     public function getShortDescription(): ?string
     {
         if (strlen($this->description) < 40) {
@@ -121,7 +125,7 @@ class CheeseListing
         return $this;
     }
 
-    #[Groups(['cheese_listing:write', 'user:write'])]
+    #[Groups(['cheese:write', 'user:write'])]
     #[SerializedName('description')]
     public function setTextDescription(string $description): static
     {
@@ -147,7 +151,7 @@ class CheeseListing
         return $this->createdAt;
     }
 
-    #[Groups(['cheese_listing:read'])]
+    #[Groups(['cheese:read'])]
     public function getCreatedAtAgo(): string
     {
         return Carbon::instance($this->createdAt)->diffForHumans();
@@ -160,12 +164,12 @@ class CheeseListing
     //     return $this;
     // }
 
-    public function isPublished(): ?bool
+    public function getIsPublished(): ?bool
     {
         return $this->isPublished;
     }
 
-    public function setPublished(bool $isPublished): static
+    public function setIsPublished(bool $isPublished): static
     {
         $this->isPublished = $isPublished;
 
